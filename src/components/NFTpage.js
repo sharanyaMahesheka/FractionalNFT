@@ -1,6 +1,5 @@
 import Navbar from "./Navbar";
-import axie from "../tile.jpeg";
-import { useLocation, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import MarketplaceJSON from "../Marketplace.json";
 import axios from "axios";
 import { useState } from "react";
@@ -106,12 +105,12 @@ async function buyNFT(tokenId) {
             let transaction = await contract.nftSell(tokenId, amtToSell, {value:salePrice});
             await transaction.wait();
             alert('You successfully bought the NFT!');
+            window.location.reload(false);
         } catch (error) {
             alert(error)
         }
         enableButton("buy-btn")
         updateMessage("");
-        window.location.reload(false);
     } else {
         try {
             const ethers = require("ethers");
@@ -164,6 +163,33 @@ async function  fraction (tokenId) {
     window.location.reload(false);
 }
 
+async function loanNFT(tokenId) {
+    
+    const contract1 = await getFractionaliseContract();
+    const loanDuration = document.querySelector("#loanDuration").value;
+    const loanFraction = document.querySelector("#loanFraction").value;
+    const loanAmount = document.querySelector("#loanAmount").value;
+
+    if( !loanDuration  || !loanFraction || !loanAmount)
+    {
+        updateMessage("Please fill all the fields!")
+        return -1;
+    }
+    
+    updateMessage("Taking Loan  Please Wait (Upto 5 mins)")
+    disableButton("loan-btn");
+    try{
+        var test = await contract1.takeLoan(loanAmount,tokenId,loanDuration,loanFraction);
+        await test.wait();
+        alert('You successfully taken Loan!');
+        window.location.reload(false);
+    } catch (error) {
+        alert(error);
+    }
+    updateMessage("");
+    enableButton("loan-btn");
+}
+
     const params = useParams();
     const tokenId = params.tokenId;
     if(!dataFetched)
@@ -213,19 +239,33 @@ async function  fraction (tokenId) {
                             }
                             </div>
                     <div>
-                    { currAddress != data.owner && currAddress != data.seller && data.fractionalise?
+                    { currAddress != data.owner && currAddress != data.seller && data.fractionalise && data.fractionaliseQty > 0?
                      <div className="mb-4">
                         <label className="block text-purple-500 text-sm font-bold mb-2" htmlFor="name">Quantity To Buy</label>
                         <input className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text" required="required" id="amtToSell"/>
                     </div> :  <div></div>
                     }
 
-                     { currAddress != data.owner && currAddress != data.seller ?
+                     { currAddress != data.owner && currAddress != data.seller  && ((data.fractionalise && data.fractionaliseQty > 0 )|| (!data.fractionalise))?
                         <button className="enableEthereumButton bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm" id="buy-btn" onClick={() => buyNFT(tokenId)}>Buy this NFT</button>
                         : <div className="text-emerald-700">You are the owner of this NFT</div>
                     }
-                    
+    
                     <div className="text-red-500 text-center mt-3">{message}</div>
+                    { (currAddress == data.owner || currAddress == data.seller) && (data.fractionalise && data.fractionaliseQty > 0)?
+                        <div className="mb-4">
+                            <label className="block text-purple-500 text-sm font-bold mb-2" htmlFor="name">Amount of Loan (in wei)</label>
+                            <input className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text" required="required" id="loanAmount" />
+                            <label className="block text-purple-500 text-sm font-bold mb-2" htmlFor="name">Fractions You Want To Take Loan</label>
+                            <input className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text" required="required" id="loanFraction" />
+                            <label className="block text-purple-500 text-sm font-bold mb-2" htmlFor="name">Duration(in days)</label>
+                            <input className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text" required="required" id="loanDuration" />
+                            <button className="enableEthereumButton bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm" id="loan-btn" onClick={() => loanNFT(tokenId)}>Loan this NFT</button>
+                            <label className="block text-purple-500 text-sm font-bold mb-2" htmlFor="name">Fixed Rate of Intrest : 5%</label>
+                        </div> : <div></div>
+                        
+                    }
+
                     <div className="mb-4">
                      { !(currAddress != data.owner && currAddress != data.seller )&& !data.fractionalise?
                          <div>
@@ -245,6 +285,7 @@ async function  fraction (tokenId) {
                        <button className="enableEthereumButton bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm" id="frac-btn" onClick={() => fraction(tokenId)}>Fractionalise this NFT
                        </button>: <div></div>
                     }       
+                    
                     </div>
                     </div>
                 </div>

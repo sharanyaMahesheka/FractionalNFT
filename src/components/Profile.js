@@ -1,5 +1,5 @@
 import Navbar from "./Navbar";
-import { useLocation, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import MarketplaceJSON from "../Marketplace.json";
 import axios from "axios";
 import { useState } from "react";
@@ -10,6 +10,21 @@ export default function Profile () {
     const [dataFetched, updateFetched] = useState(false);
     const [address, updateAddress] = useState("0x");
     const [totalPrice, updateTotalPrice] = useState("0");
+    const [message, updateMessage] = useState("");
+
+    async function disableButton(btnName) {
+        const listButton = document.getElementById(btnName)
+        listButton.disabled = true
+        listButton.style.backgroundColor = "grey";
+        listButton.style.opacity = 0.3;
+    }
+    
+    async function enableButton(btnName) {
+        const listButton = document.getElementById(btnName)
+        listButton.disabled = false
+        listButton.style.backgroundColor = "#A500FF";
+        listButton.style.opacity = 1;
+    }
 
     async function getNFTData(tokenId) {
         const ethers = require("ethers");
@@ -58,6 +73,37 @@ export default function Profile () {
         updateTotalPrice(sumPrice.toPrecision(3));
     }
 
+    async function getFractionaliseContract() {
+
+        const ethers = require("ethers");
+        //After adding your Hardhat network to your metamask, this code will get providers and signers
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+    
+        //Pull the deployed contract instance
+        let contract = new ethers.Contract(MarketplaceJSON.address, MarketplaceJSON.abi, signer);
+        return contract;
+      }
+    
+
+    async function repayLoan(loanId) {
+        const contract1 = await getFractionaliseContract();
+        updateMessage("Repaying the NFT... Please Wait (Upto 5 mins)")
+        disableButton("repay-btn");
+    
+        try{
+            var test = await contract1.repayLoan(3, {value: 25});
+            await test.wait();
+            alert('You successfully repaid the Loan!');
+        } catch (error) {
+            alert(error);
+        }
+        updateMessage("");
+        enableButton("frac-btn");
+        window.location.reload(false);
+        console.log(loanId);
+    }
+
     const params = useParams();
     const tokenId = params.tokenId;
     if(!dataFetched)
@@ -80,7 +126,7 @@ export default function Profile () {
                     </div>
                     <div className="ml-20">
                         <h2 className="font-bold">Total Value</h2>
-                        {totalPrice} ETH
+                        {totalPrice} Wei
                     </div>
             </div>
             <div className="flex flex-col text-center items-center mt-11 text-white">
@@ -92,6 +138,25 @@ export default function Profile () {
                 </div>
                 <div className="mt-10 text-xl">
                     {data.length == 0 ? "Oops, No NFT data to display (Are you logged in?)":""}
+                </div>
+            </div>
+
+            <div className="flex flex-col text-center items-center mt-11 text-white">
+            <h2 className="font-bold">My Loans</h2>
+            </div>
+
+            <div className="flex ml-20 mt-20">
+                <div className="text-xl ml-20 space-y-8 text-white shadow-2xl rounded-lg border-2 p-5">
+                    <div>
+                        Loan Id: 1
+                    </div>
+                    <div>
+                        Loan Repayment Amount : 1234
+                    </div>
+                    <div>
+                        <button className="enableEthereumButton bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm" id="repay-btn" onClick={() => repayLoan(1)}>Repay Loan</button>
+                        <div className="text-red-500 text-center mt-3">{message}</div>
+                    </div>
                 </div>
             </div>
             </div>
