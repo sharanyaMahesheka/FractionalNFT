@@ -40,6 +40,7 @@ async function getNFTData(tokenId) {
         fractionalise: listedToken.fractionalise,
         fractionalisePrice: listedToken.fnftPrice.toNumber(),
         fractionaliseQty: listedToken.amount.toNumber(),
+        loanActive: listedToken.loanActive
     }
     console.log(item);
     updateData(item);
@@ -97,8 +98,10 @@ async function buyNFT(tokenId) {
         let contract = new ethers.Contract(MarketplaceJSON.address, MarketplaceJSON.abi, signer);
         updateMessage("Buying the NFT... Please Wait (Upto 5 mins)")
 
-
-        const salePrice = ethers.utils.parseUnits("0.01", 'ether')
+        console.log(amtToSell + " amtToSell")
+        console.log(data.fractionalisePrice + " prce")
+        const salePrice = amtToSell * data.fractionalisePrice
+        console.log("salePrice" + salePrice)
         //run the executeSale function
         try{
             disableButton("buy-btn")
@@ -252,7 +255,7 @@ async function loanNFT(tokenId) {
                     }
     
                     <div className="text-red-500 text-center mt-3">{message}</div>
-                    { (currAddress == data.owner || currAddress == data.seller) && (data.fractionalise && data.fractionaliseQty > 0)?
+                    { (currAddress == data.owner || currAddress == data.seller) && (data.fractionalise && data.fractionaliseQty > 0) && !data.loanActive?
                         <div className="mb-4">
                             <label className="block text-purple-500 text-sm font-bold mb-2" htmlFor="name">Amount of Loan (in wei)</label>
                             <input className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text" required="required" id="loanAmount" />

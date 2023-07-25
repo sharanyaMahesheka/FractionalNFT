@@ -76,6 +76,7 @@ async function getAllNFTs() {
             fractionalise: i.fractionalise,
             fractionalisePrice: i.fnftPrice.toNumber(),
             fractionaliseQty: i.amount.toNumber(),
+            loanActive: i.loanActive
         }
         return item;
     }))

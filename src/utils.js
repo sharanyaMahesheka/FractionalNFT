@@ -3,9 +3,6 @@
 export const GetIpfsUrlFromPinata = (pinataUrl) => {
     console.log("TEST");
     console.log(pinataUrl);
-    // if(IPFSUrl == undefined){
-    //     return ;
-    // }
     try{
         var IPFSUrl = pinataUrl.split("/");
         const lastIndex = IPFSUrl.length;

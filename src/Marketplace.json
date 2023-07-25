@@ -1,4 +1,4 @@
-{"address":"0xaf5Bd7fA7C7732Aa4F9c52aC57f6AdA0336dc39d",
+{"address":"0xA95c89731ceEF4e8BA25996d91aFc0E225804448",
     "abi": [
         {
         "inputs": [],
@@ -195,6 +195,11 @@
         "internalType": "uint256",
         "name": "fnftPrice",
         "type": "uint256"
+        },
+        {
+        "internalType": "bool",
+        "name": "loanActive",
+        "type": "bool"
         }
         ],
         "internalType": "struct NFTMarketplace.ListedToken",
@@ -581,6 +586,11 @@
         "internalType": "uint256",
         "name": "fnftPrice",
         "type": "uint256"
+        },
+        {
+        "internalType": "bool",
+        "name": "loanActive",
+        "type": "bool"
         }
         ],
         "internalType": "struct NFTMarketplace.ListedToken[]",
@@ -679,6 +689,11 @@
         "internalType": "uint256",
         "name": "fnftPrice",
         "type": "uint256"
+        },
+        {
+        "internalType": "bool",
+        "name": "loanActive",
+        "type": "bool"
         }
         ],
         "internalType": "struct NFTMarketplace.ListedToken",
@@ -752,6 +767,11 @@
         "internalType": "uint256",
         "name": "fnftPrice",
         "type": "uint256"
+        },
+        {
+        "internalType": "bool",
+        "name": "loanActive",
+        "type": "bool"
         }
         ],
         "internalType": "struct NFTMarketplace.ListedToken[]",
@@ -818,6 +838,11 @@
         "internalType": "uint256",
         "name": "fnftPrice",
         "type": "uint256"
+        },
+        {
+        "internalType": "bool",
+        "name": "loanActive",
+        "type": "bool"
         }
         ],
         "internalType": "struct NFTMarketplace.ListedToken",
@@ -967,5 +992,5 @@
         "stateMutability": "view",
         "type": "function"
         }
-    ]
+        ]
 }

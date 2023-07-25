@@ -6,7 +6,19 @@ import { useState } from "react";
 import NFTTile from "./NFTTile";
 
 export default function Profile () {
+
+    const sampleLoan = {
+        loanAmount : 0,
+        interestRate : 0,
+         duration : 0,
+        loanId : -1,
+         collateralAmount : 0,
+        tokenId : 0,
+        active : false
+    }
     const [data, updateData] = useState([]);
+    const [loanData, updateLoanData] = useState(sampleLoan);
+    const [loanFetched, updateLoanFetched] = useState(false);
     const [dataFetched, updateFetched] = useState(false);
     const [address, updateAddress] = useState("0x");
     const [totalPrice, updateTotalPrice] = useState("0");
@@ -24,6 +36,38 @@ export default function Profile () {
         listButton.disabled = false
         listButton.style.backgroundColor = "#A500FF";
         listButton.style.opacity = 1;
+    }
+
+    async function getLoanData() {
+        console.log("in loan data")
+        const ethers = require("ethers");
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        const addr = await signer.getAddress();
+        let contract = new ethers.Contract(MarketplaceJSON.address, MarketplaceJSON.abi, signer);
+
+        try{
+            let transaction = await contract.getAllMyLoans();
+            console.log("GET LOANS: " + transaction)
+            console.log("GET LOANS 1: " + transaction[0])
+
+            let loan = {
+                loanAmount : transaction[0].toNumber(),
+                interestRate : transaction[1].toNumber(),
+                 duration : transaction[2].toNumber(),
+                loanId : transaction[3].toNumber(),
+                 collateralAmount : transaction[5].toNumber(),
+                tokenId : transaction[6].toNumber(),
+                active : transaction[7],
+           }
+
+            updateLoanData(loan)
+            updateLoanFetched(true)
+
+        } catch(error) {
+            
+        }
+
     }
 
     async function getNFTData(tokenId) {
@@ -45,32 +89,38 @@ export default function Profile () {
         * and creates an object of information that is to be displayed
         */
         
-        const items = await Promise.all(transaction.map(async i => {
-            const tokenURI = await contract.tokenURI(i.tokenId);
-            let meta = await axios.get(tokenURI);
-            meta = meta.data;
-            console.log("Hello" + i.fnftPrice.toString());
-            let price = ethers.utils.formatUnits(i.price.toString(), 'ether');
-            let item = {
-                price,
-                tokenId: i.tokenId.toNumber(),
-                seller: i.seller,
-                owner: i.owner,
-                image: meta.image,
-                name: meta.name,
-                description: meta.description,
-                fractionalise: i.fractionalise,
-                fractionalisePrice: i.fnftPrice.toNumber(),
-                fractionaliseQty: i.amount.toNumber(),
-            }
-            sumPrice += Number(price);
-            return item;
-        }))
-
-        updateData(items);
-        updateFetched(true);
-        updateAddress(addr);
-        updateTotalPrice(sumPrice.toPrecision(3));
+        try{
+            const items = await Promise.all(transaction.map(async i => {
+                const tokenURI = await contract.tokenURI(i.tokenId);
+                let meta = await axios.get(tokenURI);
+                meta = meta.data;
+                console.log("Hello" + i.fnftPrice.toString());
+                let price = ethers.utils.formatUnits(i.price.toString(), 'ether');
+                let item = {
+                    price,
+                    tokenId: i.tokenId.toNumber(),
+                    seller: i.seller,
+                    owner: i.owner,
+                    image: meta.image,
+                    name: meta.name,
+                    description: meta.description,
+                    fractionalise: i.fractionalise,
+                    fractionalisePrice: i.fnftPrice.toNumber(),
+                    fractionaliseQty: i.amount.toNumber(),
+                    loanActive: i.loanActive
+                }
+                sumPrice += Number(price);
+                return item;
+            }))
+    
+            updateData(items);
+            updateFetched(true);
+            updateAddress(addr);
+            updateTotalPrice(sumPrice.toPrecision(3));
+        } catch(error) {
+            console.log(error)
+        }
+       
     }
 
     async function getFractionaliseContract() {
@@ -86,28 +136,32 @@ export default function Profile () {
       }
     
 
-    async function repayLoan(loanId) {
+    async function repayLoan() {
         const contract1 = await getFractionaliseContract();
         updateMessage("Repaying the NFT... Please Wait (Upto 5 mins)")
         disableButton("repay-btn");
     
         try{
-            var test = await contract1.repayLoan(3, {value: 25});
+            console.log("loanData.collateralAmount " + loanData.collateralAmount)
+            console.log("loanData.loanId " + loanData.loanId)
+            var test = await contract1.repayLoan(loanData.loanId, {value: loanData.collateralAmount});
             await test.wait();
             alert('You successfully repaid the Loan!');
+            window.location.reload(false);
         } catch (error) {
             alert(error);
         }
         updateMessage("");
         enableButton("frac-btn");
-        window.location.reload(false);
-        console.log(loanId);
     }
 
     const params = useParams();
     const tokenId = params.tokenId;
     if(!dataFetched)
         getNFTData(tokenId);
+    
+    if(!loanFetched)
+        getLoanData();
 
     return (
         <div className="profileClass" style={{"min-height":"100vh"}}>
@@ -146,18 +200,30 @@ export default function Profile () {
             </div>
 
             <div className="flex ml-20 mt-20">
-                <div className="text-xl ml-20 space-y-8 text-white shadow-2xl rounded-lg border-2 p-5">
+                {
+                    loanData.loanId > 0? 
+                    <div className="text-xl ml-20 space-y-8 text-white shadow-2xl rounded-lg border-2 p-5">
                     <div>
-                        Loan Id: 1
+                        Loan Id: {loanData.loanId}
                     </div>
                     <div>
-                        Loan Repayment Amount : 1234
+                        Loan Repayment Amount : {loanData.collateralAmount} Wei
                     </div>
                     <div>
-                        <button className="enableEthereumButton bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm" id="repay-btn" onClick={() => repayLoan(1)}>Repay Loan</button>
+                        Loan Duration : {loanData.duration} Days
+                    </div>
+                    <div> 
+
+                    { loanData.active?
+                       <button className="enableEthereumButton bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm" id="repay-btn" onClick={() => repayLoan()}>Repay Loan</button>
+                       : <div>Loan Repaid</div>
+                    }            
                         <div className="text-red-500 text-center mt-3">{message}</div>
                     </div>
-                </div>
+                </div> : 
+                <div className="mt-10 text-xl">
+                    You have not taken any loans !!!        
+                </div>}
             </div>
             </div>
         </div>

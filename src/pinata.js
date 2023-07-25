@@ -18,7 +18,7 @@ export const uploadJSONToIPFS = async(JSONBody) => {
         .then(function (response) {
            return {
                success: true,
-               pinataURL: "https://gateway.pinata.cloud/ipfs/" + response.data.IpfsHash
+               pinataURL: "https://ipfs.moralis.io:2053/ipfs/" + response.data.IpfsHash
            };
         })
         .catch(function (error) {
@@ -77,7 +77,7 @@ export const uploadFileToIPFS = async(file) => {
             console.log("image uploaded", response.data.IpfsHash)
             return {
                success: true,
-               pinataURL: "https://gateway.pinata.cloud/ipfs/" + response.data.IpfsHash
+               pinataURL: "https://ipfs.moralis.io:2053/ipfs/" + response.data.IpfsHash
            };
         })
         .catch(function (error) {
