@@ -1,24 +1,21 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
 
-import "hardhat/console.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract NFTMarketplace is ERC721URIStorage {
-
     using Counters for Counters.Counter;
-    //_tokenIds variable has the most recent minted tokenId
     Counters.Counter private _tokenIds;
-    //Keeps track of the number of items sold on the marketplace
     Counters.Counter private _itemsSold;
-    //owner is the contract address that created the smart contract
     address payable owner;
-    //The fee charged by the marketplace to be allowed to list an NFT
-    uint256 listPrice = 0.01 ether;
+    uint256 public listPrice = 1 gwei;
 
-    //The structure to store info about a listed token
     struct ListedToken {
         uint256 tokenId;
         address payable owner;
@@ -28,36 +25,21 @@ contract NFTMarketplace is ERC721URIStorage {
         bool fractionalise;
         address fnft;
         uint256 amount;
+        uint256 fnftPrice;
+        bool loanActive;
     }
 
-    //the event emitted when a token is successfully listed
-    event TokenListedSuccess (
-        uint256 indexed tokenId,
-        address owner,
-        address seller,
-        uint256 price,
-        bool currentlyListed
-    );
+    event TokenListedSuccess (uint256 indexed tokenId,address owner,address seller,uint256 price,bool currentlyListed);
 
-    //This mapping maps tokenId to token info and is helpful when retrieving details about a tokenId
     mapping(uint256 => ListedToken) private idToListedToken;
+    mapping(uint256 => address) private idToFNFTLoan;
 
     constructor() ERC721("NFTMarketplace", "NFTM") {
         owner = payable(msg.sender);
     }
 
-    function updateListPrice(uint256 _listPrice) public payable {
-        require(owner == msg.sender, "Only owner can update listing price");
-        listPrice = _listPrice;
-    }
-
-    function getListPrice() public view returns (uint256) {
-        return listPrice;
-    }
-
-    function getLatestIdToListedToken() public view returns (ListedToken memory) {
-        uint256 currentTokenId = _tokenIds.current();
-        return idToListedToken[currentTokenId];
+    function getTokenFromTokenId(uint256 _tokenId) public view returns (ListedToken memory) {
+        return idToListedToken[_tokenId];
     }
 
     function getListedTokenForId(uint256 tokenId) public view returns (ListedToken memory) {
@@ -68,67 +50,54 @@ contract NFTMarketplace is ERC721URIStorage {
         return _tokenIds.current();
     }
 
-    //The first time a token is created, it is listed here
-    function createToken(string memory tokenURI, uint256 price) public payable returns (uint) {
-        //Increment the tokenId counter, which is keeping track of the number of minted NFTs
-        _tokenIds.increment();
-        uint256 newTokenId = _tokenIds.current();
-
-        //Mint the NFT with tokenId newTokenId to the address who called createToken
-        _safeMint(msg.sender, newTokenId);
-
-        //Map the tokenId to the tokenURI (which is an IPFS URL with the NFT metadata)
-        _setTokenURI(newTokenId, tokenURI);
-
-        //Helper function to update Global variables and emit an event
-        createListedToken(newTokenId, price);
-
-        return newTokenId;
+    function getListPrice() public view returns (uint256) {
+        return listPrice;
     }
 
+    function fractionalise(uint256 _tokenId, uint256 _totalFractionalTokens, uint256 _fnftPrice) public returns (ListedToken memory){
+        ListedToken memory token = idToListedToken[_tokenId];
+        require(!token.fractionalise, "Token already fractionalised");
 
-    function fractionalise(uint256 _tokenId, uint256 _totalFractionalTokens) {
-        ListedToken token = idToListedToken[_tokenId];
-
-        FNFToken _fnftoken = (new FNFToken)();  
-                                            //initialize
-        _fnftoken.mint(msg.sender, _totalFractionalTokens * 1000000000000000000);   //now mint the fractional tokens and send it to the owner of this NFT           
-        _fnftoken.transfer(fromSeller, toContract);
+        FNFToken _fnftoken = (new FNFToken)();
+        _fnftoken.mint(address(this), _totalFractionalTokens);
+        _fnftoken.approve(msg.sender, _totalFractionalTokens);
+        _fnftoken.approve(address(this), _totalFractionalTokens);
+        //_fnftoken.transferFrom(msg.sender, address(this), _totalFractionalTokens * 100000000000000000);
 
         token.fractionalise = true;
         token.amount = _totalFractionalTokens;
         token.fnft = address(_fnftoken);
+        token.fnftPrice = _fnftPrice;
         idToListedToken[_tokenId] = token;
+        return token;
+    }
 
-    } 
+    function nftSell(uint256 _tokenId, uint256 _qty) public payable {
+        ListedToken memory token = idToListedToken[_tokenId];
+        //require(msg.value==_qty*token.fnftPrice, "Pay proper price");
+        require(token.amount>=_qty, "Quantity must be less than or equal to amount of tokens");
+        require(_qty*token.fnftPrice==msg.value, "Give correct amount;");
+        ERC20Burnable(token.fnft).transferFrom(address(this), msg.sender, _qty);
+        payable(idToListedToken[_tokenId].seller).transfer(msg.value);
+        token.amount -= _qty;
+        idToListedToken[_tokenId] = token;
+    }
+
+    function createToken(string memory tokenURI, uint256 price) public payable returns (uint) {
+        _tokenIds.increment();
+        uint256 newTokenId = _tokenIds.current();
+        _safeMint(msg.sender, newTokenId);
+        _setTokenURI(newTokenId, tokenURI);
+        createListedToken(newTokenId, price);
+        return newTokenId;
+    }
 
     function createListedToken(uint256 tokenId, uint256 price) private {
-        //Make sure the sender sent enough ETH to pay for listing
         require(msg.value == listPrice, "Hopefully sending the correct price");
-        //Just sanity check
         require(price > 0, "Make sure the price isn't negative");
-
-        //Update the mapping of tokenId's to Token details, useful for retrieval functions
-        idToListedToken[tokenId] = ListedToken(
-            tokenId,
-            payable(address(this)),
-            payable(msg.sender),
-            price,
-            true,
-            false,
-            null,
-            0
-        );
-
-        _transfer(msg.sender, address(this), tokenId);
-        //Emit the event for successful transfer. The frontend parses this message and updates the end user
-        emit TokenListedSuccess(
-            tokenId,
-            address(this),
-            msg.sender,
-            price,
-            true
-        );
+        idToListedToken[tokenId] = ListedToken(tokenId,payable(address(this)),payable(msg.sender),price,true,false,address(0),0,0, false);
+        //_transfer(msg.sender, address(this), tokenId);
+        emit TokenListedSuccess(tokenId,address(this),msg.sender,price,true);
     }
     
     //This will return all the NFTs currently listed to be sold on the marketplace
@@ -198,9 +167,71 @@ contract NFTMarketplace is ERC721URIStorage {
         payable(seller).transfer(msg.value);
     }
 
-    //We might add a resell token function in the future
-    //In that case, tokens won't be listed by default but users can send a request to actually list a token
-    //Currently NFTs are listed by default
+    struct Loan{
+        uint256 loanAmount;
+        uint256 interestRate;
+        uint256 duration;
+        uint256 loanId;
+        address fnftoken;
+        uint256 collateralAmount;
+        uint256 tokenId;
+        bool active;
+        uint256 amountOwed;
+    }
+
+    mapping(uint256 => Loan) private idToLoan;
+    mapping(address => uint256) public loanTakenByUser;
+    uint256 private loanCounter = 1;
+
+    function calculateAmountOwed(uint256 loanAmount, uint256 interestRate, uint256 duration) public pure returns(uint256){
+        return loanAmount + (loanAmount*interestRate*duration)/100;
+    }
+
+    function amountOwedOnLoan(uint256 loanId) public view returns(uint256){
+        return idToLoan[loanId].amountOwed;
+    }
+
+    function getAllMyLoans()public view returns(Loan memory){
+        uint256 loanId = loanTakenByUser[msg.sender];
+        return idToLoan[loanId];
+    }
+
+    function takeLoan(uint256 amountOfLoan, uint256 tokenId, uint256 duration, uint256 quantityOfFractional) public {
+        ListedToken memory token = idToListedToken[tokenId];
+        require(loanTakenByUser[msg.sender]==0, "You have already taken a loan");
+        require(amountOfLoan <= quantityOfFractional*idToListedToken[tokenId].fnftPrice, "You cannot take more loan than collateral");
+        //require(balances[msg.sender] >= amountOfLoan, "Insufficient balance");
+        // add more requires if needed
+        //safeTransferFrom(address(this), msg.sender, amountOfLoan);
+        payable(msg.sender).transfer(amountOfLoan);
+        //ERC20Burnable(token.fnft).approve(msg.sender, token.amount);
+        //ERC20Burnable(token.fnft).transferFrom(msg.sender, address(this), quantityOfFractional);
+        token.amount -= quantityOfFractional;
+        Loan memory loan = Loan(amountOfLoan, 5, duration, loanCounter, token.fnft, quantityOfFractional, tokenId, true, calculateAmountOwed(amountOfLoan, 5, duration));
+        idToLoan[loanCounter] = loan;
+        loanTakenByUser[msg.sender] = loanCounter;
+        loanCounter++;
+        token.loanActive = true;
+        idToListedToken[tokenId] = token;
+    }
+
+    function repayLoan(uint256 loanId) public payable{
+        require(msg.value==amountOwedOnLoan(loanId), "Give correct amount");
+        Loan memory loan = idToLoan[loanId];
+        loan.active = false;
+        ListedToken memory token = idToListedToken[loan.tokenId];
+        token.amount+=loan.collateralAmount;
+        loan.active = false;
+        idToLoan[loanId] = loan;
+        token.loanActive = false;
+        idToListedToken[loan.tokenId] = token;
+        loanTakenByUser[msg.sender] = 0;
+        //ERC20Burnable(idToLoan[loanId].fnftoken).transferFrom( address(this),msg.sender, idToLoan[loanId].collateralAmount);
+    }
+
+    function takeMoney() public payable{
+        require(msg.value>0, "Give more than 0 wei");
+    }
 }
 
 contract FNFToken is ERC20, ERC20Burnable, Ownable {
