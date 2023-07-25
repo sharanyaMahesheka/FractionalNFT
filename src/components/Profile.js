@@ -14,7 +14,8 @@ export default function Profile () {
         loanId : -1,
          collateralAmount : 0,
         tokenId : 0,
-        active : false
+        active : false,
+        amountOwed: 0
     }
     const [data, updateData] = useState([]);
     const [loanData, updateLoanData] = useState(sampleLoan);
@@ -47,9 +48,9 @@ export default function Profile () {
         let contract = new ethers.Contract(MarketplaceJSON.address, MarketplaceJSON.abi, signer);
 
         try{
+
             let transaction = await contract.getAllMyLoans();
             console.log("GET LOANS: " + transaction)
-            console.log("GET LOANS 1: " + transaction[0])
 
             let loan = {
                 loanAmount : transaction[0].toNumber(),
@@ -59,6 +60,7 @@ export default function Profile () {
                  collateralAmount : transaction[5].toNumber(),
                 tokenId : transaction[6].toNumber(),
                 active : transaction[7],
+                amountOwed: transaction[8].toNumber()
            }
 
             updateLoanData(loan)
@@ -138,13 +140,14 @@ export default function Profile () {
 
     async function repayLoan() {
         const contract1 = await getFractionaliseContract();
-        updateMessage("Repaying the NFT... Please Wait (Upto 5 mins)")
+        updateMessage("Repaying the laon... Please Wait (Upto 5 mins)")
         disableButton("repay-btn");
     
         try{
             console.log("loanData.collateralAmount " + loanData.collateralAmount)
             console.log("loanData.loanId " + loanData.loanId)
-            var test = await contract1.repayLoan(loanData.loanId, {value: loanData.collateralAmount});
+
+            var test = await contract1.repayLoan(loanData.loanId, {value: loanData.amountOwed});
             await test.wait();
             alert('You successfully repaid the Loan!');
             window.location.reload(false);
@@ -152,7 +155,7 @@ export default function Profile () {
             alert(error);
         }
         updateMessage("");
-        enableButton("frac-btn");
+        enableButton("repay-btn");
     }
 
     const params = useParams();
@@ -180,7 +183,7 @@ export default function Profile () {
                     </div>
                     <div className="ml-20">
                         <h2 className="font-bold">Total Value</h2>
-                        {totalPrice} Wei
+                        {totalPrice} 
                     </div>
             </div>
             <div className="flex flex-col text-center items-center mt-11 text-white">
@@ -207,7 +210,10 @@ export default function Profile () {
                         Loan Id: {loanData.loanId}
                     </div>
                     <div>
-                        Loan Repayment Amount : {loanData.collateralAmount} Wei
+                        Loan Taken Amount : {loanData.collateralAmount} Wei
+                    </div>
+                    <div>
+                        Loan Repayment Amount : {loanData.amountOwed} Wei
                     </div>
                     <div>
                         Loan Duration : {loanData.duration} Days
@@ -222,7 +228,7 @@ export default function Profile () {
                     </div>
                 </div> : 
                 <div className="mt-10 text-xl">
-                    You have not taken any loans !!!        
+                    No active Loans !!!        
                 </div>}
             </div>
             </div>

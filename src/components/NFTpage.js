@@ -225,7 +225,7 @@ async function loanNFT(tokenId) {
                     <div>                          
                     { data.fractionalise?
                         <div>
-                            Fractionalised Quantity : <span className="text-sm">{data.fractionaliseQty}</span>
+                            Fractionalised Quantity : <span className="text-sm">{data.fractionaliseQty} </span>
                         </div>
                         :
                        <div></div>
@@ -235,7 +235,7 @@ async function loanNFT(tokenId) {
                     <div>
                             { data.fractionalise?
                                 <div>
-                                    Fractionalised Price : <span className="text-sm">{data.fractionalisePrice}</span>
+                                    Fractionalised Price : <span className="text-sm">{data.fractionalisePrice} Wei</span>
                                 </div>
                                 :
                                <div></div>
@@ -251,7 +251,7 @@ async function loanNFT(tokenId) {
 
                      { currAddress != data.owner && currAddress != data.seller  && ((data.fractionalise && data.fractionaliseQty > 0 )|| (!data.fractionalise))?
                         <button className="enableEthereumButton bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm" id="buy-btn" onClick={() => buyNFT(tokenId)}>Buy this NFT</button>
-                        : <div className="text-emerald-700">You are the owner of this NFT</div>
+                        : <div className="text-emerald-700"></div>
                     }
     
                     <div className="text-red-500 text-center mt-3">{message}</div>
